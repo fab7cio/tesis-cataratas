@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validación Clinical - Tesis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f1f3f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; position: relative; }
+        .card-custom { max-width: 550px; width: 100%; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: none; }
+        .img-container { height: 320px; overflow: hidden; display: flex; justify-content: center; align-items: center; background-color: #1a1a1a; border-radius: 12px; }
+        .img-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .btn-diagnostico { font-weight: 600; font-size: 1.05rem; transition: all 0.2s ease; }
+        .btn-diagnostico:hover { transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+
+<div id="pantalla-registro" class="card card-custom p-4 bg-white">
+    <h3 class="text-center mb-2 text-primary fw-bold">Evaluación de Cataratas por Imágenes</h3>
+    <p class="text-muted text-center small mb-4"></p>
+    <div class="mb-3">
+        <label for="nombre-medico" class="form-label fw-semibold">Nombre del Especialista y/o Oftalmólogo:</label>
+        <input type="text" id="nombre-medico" class="form-control form-control-lg" placeholder="Ej. Dr. Carlos Mendoza">
+    </div>
+    <div class="mb-4">
+        <label for="bio-medico" class="form-label fw-semibold">Háblanos un poco de ti:</label>
+        <textarea id="bio-medico" class="form-control" rows="3" placeholder="Ej. Especialista en segmento anterior, UPAO..."></textarea>
+    </div>
+    <button id="btn-comenzar" class="btn btn-primary w-100 btn-lg fw-bold py-3">Empezar Diagnóstico</button>
+</div>
+
+<div id="pantalla-evaluacion" class="card card-custom p-4 bg-white d-none">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="badge bg-primary px-3 py-2 fs-6" id="tag-medico">Médico: </span>
+    </div>
+
+    <div class="img-container mb-4">
+        <img id="imagen-ojo" src="" alt="Cargando imagen médica desde Supabase...">
+    </div>
+
+    <h5 class="text-center mb-4 fw-bold text-secondary">¿Cuál es el diagnóstico clínico observado?</h5>
+
+    <div class="row g-3">
+        <div class="col-6"><button class="btn btn-outline-success w-100 py-3 btn-diagnostico" data-clase="Normal">Ojo Normal</button></div>
+        <div class="col-6"><button class="btn btn-outline-danger w-100 py-3 btn-diagnostico" data-clase="Nuclear">Catarata Nuclear</button></div>
+        <div class="col-6"><button class="btn btn-outline-warning w-100 py-3 btn-diagnostico" data-clase="Cortical">Catarata Cortical</button></div>
+        <div class="col-6"><button class="btn btn-outline-info w-100 py-3 btn-diagnostico" data-clase="Subcapsular">Catarata Subcapsular</button></div>
+    </div>
+</div>
+
+<div id="pantalla-dashboard" class="card card-custom p-4 bg-white d-none" style="max-width: 850px !important;">
+    <h3 class="text-center mb-2 text-dark fw-bold">Panel de Consolidación de Datos</h3>
+
+    <div class="mb-4 d-flex align-items-center gap-3 bg-light p-3 rounded-3 border">
+        <label for="filtro-medico" class="form-label fw-bold text-secondary mb-0" style="white-space: nowrap;">🔍 Filtrar por Evaluador:</label>
+        <select id="filtro-medico" class="form-select form-select-md fw-semibold">
+            <option value="todos">-- Mostrar Todos los Médicos --</option>
+        </select>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped align-middle">
+            <thead class="table-dark text-center">
+            <tr>
+                <th>Muestra Visual</th>
+                <th>Predicción Modelo</th>
+                <th>Diagnóstico Clínico</th>
+                <th>Nombre del Evaluador</th>
+                <th>Estado</th>
+            </tr>
+            </thead>
+            <tbody id="tabla-resultados-body">
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-5 p-4 bg-light rounded-3 border">
+        <h4 class="fw-bold text-dark mb-1">📊 Matriz de Confusión</h4>
+        <p class="text-muted small mb-4">Cruce estadístico entre las predicciones del Modelo y el Diagnóstico Clínico.</p>
+
+        <div class="table-responsive d-flex justify-content-center">
+            <table class="table table-sm table-bordered text-center align-middle" style="max-width: 500px; font-size: 0.9rem;">
+                <thead>
+                <tr class="table-dark">
+                    <th colspan="2" rowspan="2" style="background: transparent; border: none;"></th>
+                    <th colspan="4" class="py-2">Diagnóstico Clínico</th>
+                </tr>
+                <tr class="table-dark">
+                    <th style="width: 20%;">Normal</th>
+                    <th style="width: 20%;">Nuclear</th>
+                    <th style="width: 20%;">Cortical</th>
+                    <th style="width: 20%;">Subcapsular</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <th rowspan="4" class="table-dark" style="writing-mode: vertical-lr; transform: rotate(180deg); padding: 10px;">Predicción IA</th>
+                    <td class="fw-bold table-secondary text-start">Normal</td>
+                    <td id="m-normal-normal" class="fw-bold">-</td>
+                    <td id="m-normal-nuclear">-</td>
+                    <td id="m-normal-cortical">-</td>
+                    <td id="m-normal-subcapsular">-</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold table-secondary text-start">Nuclear</td>
+                    <td id="m-nuclear-normal">-</td>
+                    <td id="m-nuclear-nuclear" class="fw-bold">-</td>
+                    <td id="m-nuclear-cortical">-</td>
+                    <td id="m-nuclear-subcapsular">-</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold table-secondary text-start">Cortical</td>
+                    <td id="m-cortical-normal">-</td>
+                    <td id="m-cortical-nuclear">-</td>
+                    <td id="m-cortical-cortical" class="fw-bold">-</td>
+                    <td id="m-cortical-subcapsular">-</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold table-secondary text-start">Subcapsular</td>
+                    <td id="m-subcapsular-normal">-</td>
+                    <td id="m-subcapsular-nuclear">-</td>
+                    <td id="m-subcapsular-cortical">-</td>
+                    <td id="m-subcapsular-subcapsular" class="fw-bold">-</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <button id="btn-volver-evaluacion" class="btn btn-secondary w-100 mt-3">Volver a la Evaluación</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body>
+</html>
