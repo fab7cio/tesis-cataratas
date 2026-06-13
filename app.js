@@ -45,7 +45,6 @@ btnComenzar.addEventListener('click', async () => {
     cargarSiguienteImagen();
 });
 
-
 async function cargarSiguienteImagen() {
     const { data: imagenes, error } = await _supabase
         .from('imagenes_ia')
@@ -72,12 +71,10 @@ async function cargarSiguienteImagen() {
     const imagenAleatoria = pendientes[Math.floor(Math.random() * pendientes.length)];
 
     idImagenActual = imagenAleatoria.id_imagen;
-
     imagenesEvaluadas.push(idImagenActual);
 
     document.getElementById('imagen-ojo').src = imagenAleatoria.ruta_archivo;
 }
-
 
 btnDiagnosticos.forEach(boton => {
     boton.addEventListener('click', async (e) => {
@@ -102,7 +99,6 @@ btnDiagnosticos.forEach(boton => {
         cargarSiguienteImagen();
     });
 });
-
 
 let datosCruceGlobal = [];
 
@@ -241,3 +237,28 @@ function limpiarMatrizVisual() {
         });
     });
 }
+
+document.getElementById('filtro-medico').addEventListener('change', (e) => {
+    const medicoSeleccionado = e.target.value;
+
+    if (medicoSeleccionado === 'todos') {
+        renderizarTabla(datosCruceGlobal);
+    } else {
+        const datosFiltrados = datosCruceGlobal.filter(fila => {
+            if (fila.medicos && fila.medicos.nombre) {
+                return fila.medicos.nombre.toLowerCase().trim() === medicoSeleccionado.toLowerCase().trim();
+            }
+            return false;
+        });
+        renderizarTabla(datosFiltrados);
+    }
+});
+
+btnVolverEvaluacion.addEventListener('click', () => {
+    pantallaDashboard.classList.add('d-none');
+    if (idMedicoActual) {
+        pantallaEvaluacion.classList.remove('d-none');
+    } else {
+        pantallaRegistro.classList.remove('d-none');
+    }
+});
