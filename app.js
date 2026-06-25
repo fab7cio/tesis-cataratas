@@ -192,16 +192,21 @@ function calcularMatrizConfusion(datos) {
     });
 
     datos.forEach(fila => {
-        const predIA = fila.imagenes_ia ? fila.imagenes_ia.prediccion_ia.toLowerCase() : '';
-        const diagMedico = fila.diagnostico_medico ? fila.diagnostico_medico.toLowerCase() : '';
+        let predIA = fila.imagenes_ia ? fila.imagenes_ia.prediccion_ia.toLowerCase().trim() : '';
+        let diagMedico = fila.diagnostico_medico ? fila.diagnostico_medico.toLowerCase().trim() : '';
 
-        let claseMedico = diagMedico;
-        if (claseMedico === 'catarata nuclear' || claseMedico === 'nuclear') claseMedico = 'nuclear';
-        if (claseMedico === 'catarata cortical' || claseMedico === 'cortical') claseMedico = 'cortical';
-        if (claseMedico === 'catarata subcapsular' || claseMedico === 'subcapsular') claseMedico = 'subcapsular';
+        if (predIA.includes('subcapsular')) predIA = 'subcapsular';
+        if (predIA.includes('nuclear')) predIA = 'nuclear';
+        if (predIA.includes('cortical')) predIA = 'cortical';
+        if (predIA.includes('normal')) predIA = 'normal';
 
-        if (clases.includes(predIA) && clases.includes(claseMedico)) {
-            matriz[predIA][claseMedico]++;
+        if (diagMedico.includes('subcapsular')) diagMedico = 'subcapsular';
+        if (diagMedico.includes('nuclear')) diagMedico = 'nuclear';
+        if (diagMedico.includes('cortical')) diagMedico = 'cortical';
+        if (diagMedico.includes('normal')) diagMedico = 'normal';
+
+        if (clases.includes(predIA) && clases.includes(diagMedico)) {
+            matriz[predIA][diagMedico]++;
         }
     });
 
