@@ -109,19 +109,19 @@ document.addEventListener('keydown', async (e) => {
         pantallaEvaluacion.classList.add('d-none');
         pantallaDashboard.classList.remove('d-none');
 
-        tablaBody.innerHTML = '<tr><td colspan="5" class="text-center">Consultando registros y cruzando datos...</td></tr>';
+        tablaBody.innerHTML = '<tr><td colspan="6" class="text-center">Consultando registros y cruzando datos...</td></tr>';
 
         const { data: cruce, error } = await _supabase
             .from('evaluacion_medico')
             .select(`
                 id_imagen,
                 diagnostico_medico,
-                imagenes_ia ( prediccion_ia, ruta_archivo ), 
+                imagenes_ia ( prediccion_ia, ruta_archivo, ruta_gradcam ), 
                 medicos ( nombre )
             `);
 
         if (error) {
-            tablaBody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error: ${error.message}</td></tr>`;
+            tablaBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error: ${error.message}</td></tr>`;
             return;
         }
 
@@ -149,7 +149,7 @@ function renderizarTabla(datos) {
     tablaBody.innerHTML = '';
 
     if (datos.length === 0) {
-        tablaBody.innerHTML = '<tr><td colspan="5" class="text-center">No hay registros para mostrar bajo este filtro.</td></tr>';
+        tablaBody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros para mostrar bajo este filtro.</td></tr>';
         limpiarMatrizVisual();
         return;
     }
@@ -157,6 +157,7 @@ function renderizarTabla(datos) {
     datos.forEach(fila => {
         const predIA = fila.imagenes_ia ? fila.imagenes_ia.prediccion_ia : 'N/A';
         const urlFoto = fila.imagenes_ia ? fila.imagenes_ia.ruta_archivo : '';
+        const urlGradcam = fila.imagenes_ia ? fila.imagenes_ia.ruta_gradcam : '';
         const diagMedico = fila.diagnostico_medico;
         const nombreMed = fila.medicos ? fila.medicos.nombre : 'Anónimo';
 
@@ -168,6 +169,9 @@ function renderizarTabla(datos) {
             <tr class="${claseFila}">
                 <td class="text-center" style="width: 110px;">
                     ${urlFoto ? `<img src="${urlFoto}" alt="Ojo" class="img-thumbnail" style="max-height: 65px; width: 90px; object-fit: cover; background-color: #000;">` : 'N/A'}
+                </td>
+                <td class="text-center" style="width: 110px;">
+                    ${urlGradcam ? `<img src="${urlGradcam}" alt="Grad-CAM" class="img-thumbnail" style="max-height: 65px; width: 90px; object-fit: cover; background-color: #000;">` : '<span class="badge bg-secondary">Sin Mapa</span>'}
                 </td>
                 <td class="fw-semibold text-primary">${predIA}</td>
                 <td class="fw-semibold text-dark">${diagMedico}</td>
