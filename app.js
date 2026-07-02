@@ -158,20 +158,26 @@ function renderizarTabla(datos) {
         const predIA = fila.imagenes_ia ? fila.imagenes_ia.prediccion_ia : 'N/A';
         const urlFoto = fila.imagenes_ia ? fila.imagenes_ia.ruta_archivo : '';
         const urlGradcam = fila.imagenes_ia ? fila.imagenes_ia.ruta_gradcam : '';
-        const diagMedico = fila.diagnostico_medico;
+        const diagMedico = fila.diagnostico_medico ? fila.diagnostico_medico : 'N/A';
         const nombreMed = fila.medicos ? fila.medicos.nombre : 'Anónimo';
 
-        const coinciden = predIA.toLowerCase() === diagMedico.toLowerCase();
+        const coinciden = predIA.toLowerCase().trim() === diagMedico.toLowerCase().trim();
         const claseFila = coinciden ? 'table-success' : 'table-danger';
         const icono = coinciden ? '✅ Coincide' : '❌ No Coincide';
 
         tablaBody.innerHTML += `
             <tr class="${claseFila}">
                 <td class="text-center" style="width: 110px;">
-                    ${urlFoto ? `<img src="${urlFoto}" alt="Ojo" class="img-thumbnail" style="max-height: 65px; width: 90px; object-fit: cover; background-color: #000;">` : 'N/A'}
+                    ${urlFoto ? `
+                        <a href="${urlFoto}" target="_blank" title="Clic para ampliar original">
+                            <img src="${urlFoto}" alt="Ojo" class="img-thumbnail" style="max-height: 65px; width: 90px; object-fit: cover; background-color: #000; cursor: pointer;">
+                        </a>` : 'N/A'}
                 </td>
                 <td class="text-center" style="width: 110px;">
-                    ${urlGradcam ? `<img src="${urlGradcam}" alt="Grad-CAM" class="img-thumbnail" style="max-height: 65px; width: 90px; object-fit: cover; background-color: #000;">` : '<span class="badge bg-secondary">Sin Mapa</span>'}
+                    ${urlGradcam ? `
+                        <a href="${urlGradcam}" target="_blank" title="Clic para ampliar Grad-CAM">
+                            <img src="${urlGradcam}" alt="Grad-CAM" class="img-thumbnail" style="max-height: 65px; width: 90px; object-fit: cover; background-color: #000; cursor: pointer;">
+                        </a>` : '<span class="badge bg-secondary">Sin Mapa</span>'}
                 </td>
                 <td class="fw-semibold text-primary">${predIA}</td>
                 <td class="fw-semibold text-dark">${diagMedico}</td>
