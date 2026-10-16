@@ -193,9 +193,8 @@ function renderizarTabla(datos) {
             <tr class="${claseFila}">
                 <td class="text-center" style="width: 110px;">
                     ${urlFoto ? `
-                        <a href="${urlFoto}" target="_blank" title="Clic para ampliar original">
-                            <img src="${urlFoto}" alt="Ojo" class="img-thumbnail" style="max-height: 65px; width: 90px; object-fit: cover; background-color: #000; cursor: pointer;">
-                        </a>` : 'N/A'}
+                        <img src="${urlFoto}" alt="Ojo" class="img-thumbnail" style="max-height: 65px; width: 90px; object-fit: cover; background-color: #000;">
+                        ` : 'N/A'}
                 </td>
                 <td class="fw-semibold text-primary">${predIA}</td>
                 <td class="fw-semibold text-dark">${diagMedico}</td>
