@@ -3,9 +3,14 @@ const SUPABASE_KEY = "sb_publishable_GaqcyHWVMyOdFjR0RvtI-Q_w90PHMK-";
 
 const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Lote de imágenes activo: la evaluación y el dashboard solo usan este lote.
+// Los lotes anteriores (p. ej. 'fondo_ojo') siguen en la base de datos pero no se muestran.
+const LOTE_ACTUAL = 'lampara_hendidura';
+
 let idMedicoActual = null;
 let idImagenActual = null;
 let imagenesEvaluadas = [];
+let guardandoDiagnostico = false;
 
 const pantallaRegistro = document.getElementById('pantalla-registro');
 const pantallaEvaluacion = document.getElementById('pantalla-evaluacion');
@@ -48,55 +53,70 @@ btnComenzar.addEventListener('click', async () => {
 async function cargarSiguienteImagen() {
     const { data: imagenes, error } = await _supabase
         .from('imagenes_ia')
-        .select('id_imagen, ruta_archivo');
+        .select('id_imagen, ruta_archivo')
+        .eq('lote', LOTE_ACTUAL);
 
-    if (error) {
-        console.error("Error al cargar dataset:", error.message);
+    const errorCarga = document.getElementById('error-carga');
+
+    if (error || !imagenes) {
+        console.error("Error al cargar dataset:", error ? error.message : "sin datos");
+        errorCarga.textContent = "No se pudo cargar la imagen. Revise su conexión e intente nuevamente.";
+        errorCarga.classList.remove('d-none');
         return;
     }
 
+    errorCarga.classList.add('d-none');
+
     const pendientes = imagenes.filter(img => !imagenesEvaluadas.includes(img.id_imagen));
 
-    if (!pendientes || pendientes.length === 0) {
-        pantallaEvaluacion.innerHTML = `
-            <div class="text-center py-5">
-                <h2 class="text-success fw-bold mb-3">✅ ¡Evaluación Concluida!</h2>
-                <p class="text-muted mb-4">Se han procesado las imágenes médicas de forma exitosa.</p>
-                <div class="alert alert-info small">El protocolo de doble ciego ha finalizado. ¡Muchas gracias por su participación!</div>
-            </div>
-        `;
+    if (pendientes.length === 0) {
+        document.getElementById('contenido-evaluacion').classList.add('d-none');
+        document.getElementById('mensaje-fin').classList.remove('d-none');
         return;
     }
 
     const imagenAleatoria = pendientes[Math.floor(Math.random() * pendientes.length)];
 
     idImagenActual = imagenAleatoria.id_imagen;
-    imagenesEvaluadas.push(idImagenActual);
 
     document.getElementById('imagen-ojo').src = imagenAleatoria.ruta_archivo;
 }
 
 btnDiagnosticos.forEach(boton => {
     boton.addEventListener('click', async (e) => {
-        const diagnosticoElegido = e.target.getAttribute('data-clase');
+        if (guardandoDiagnostico || idImagenActual === null) return;
+        guardandoDiagnostico = true;
+        btnDiagnosticos.forEach(b => b.disabled = true);
 
-        const { error } = await _supabase
-            .from('evaluacion_medico')
-            .insert([
-                {
-                    id_imagen: idImagenActual,
-                    id_medico: idMedicoActual,
-                    diagnostico_medico: diagnosticoElegido
-                }
-            ]);
+        const diagnosticoElegido = e.currentTarget.getAttribute('data-clase');
+        const idImagenEvaluada = idImagenActual;
 
-        if (error) {
-            alert("Error al almacenar el diagnóstico: " + error.message);
-            return;
+        try {
+            const { error } = await _supabase
+                .from('evaluacion_medico')
+                .insert([
+                    {
+                        id_imagen: idImagenEvaluada,
+                        id_medico: idMedicoActual,
+                        diagnostico_medico: diagnosticoElegido
+                    }
+                ]);
+
+            if (error) {
+                alert("Error al almacenar el diagnóstico: " + error.message);
+                return;
+            }
+
+            // Solo se marca como evaluada tras guardarse con éxito
+            imagenesEvaluadas.push(idImagenEvaluada);
+            idImagenActual = null;
+
+            document.getElementById('imagen-ojo').src = "";
+            await cargarSiguienteImagen();
+        } finally {
+            guardandoDiagnostico = false;
+            btnDiagnosticos.forEach(b => b.disabled = false);
         }
-
-        document.getElementById('imagen-ojo').src = "";
-        cargarSiguienteImagen();
     });
 });
 
@@ -109,19 +129,21 @@ document.addEventListener('keydown', async (e) => {
         pantallaEvaluacion.classList.add('d-none');
         pantallaDashboard.classList.remove('d-none');
 
-        tablaBody.innerHTML = '<tr><td colspan="6" class="text-center">Consultando registros y cruzando datos...</td></tr>';
+        tablaBody.innerHTML = '<tr><td colspan="5" class="text-center">Consultando registros y cruzando datos...</td></tr>';
 
         const { data: cruce, error } = await _supabase
             .from('evaluacion_medico')
             .select(`
                 id_imagen,
+                id_medico,
                 diagnostico_medico,
-                imagenes_ia ( prediccion_ia, ruta_archivo, ruta_gradcam ), 
+                imagenes_ia!inner ( prediccion_ia, ruta_archivo, lote ),
                 medicos ( nombre )
-            `);
+            `)
+            .eq('imagenes_ia.lote', LOTE_ACTUAL);
 
         if (error) {
-            tablaBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error: ${error.message}</td></tr>`;
+            tablaBody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error: ${error.message}</td></tr>`;
             return;
         }
 
@@ -130,15 +152,18 @@ document.addEventListener('keydown', async (e) => {
         const selectFiltro = document.getElementById('filtro-medico');
         selectFiltro.innerHTML = '<option value="todos">-- Mostrar Todos los Médicos --</option>';
 
-        const medicosUnicos = new Set();
+        const medicosUnicos = new Map();
         datosCruceGlobal.forEach(fila => {
-            if (fila.medicos && fila.medicos.nombre) {
-                medicosUnicos.add(fila.medicos.nombre);
+            if (fila.id_medico && fila.medicos && fila.medicos.nombre) {
+                medicosUnicos.set(fila.id_medico, fila.medicos.nombre);
             }
         });
 
-        medicosUnicos.forEach(nombreMed => {
-            selectFiltro.innerHTML += `<option value="${nombreMed}">${nombreMed}</option>`;
+        medicosUnicos.forEach((nombreMed, idMed) => {
+            const opcion = document.createElement('option');
+            opcion.value = String(idMed);
+            opcion.textContent = `${nombreMed} (ID ${idMed})`;
+            selectFiltro.appendChild(opcion);
         });
 
         renderizarTabla(datosCruceGlobal);
@@ -149,15 +174,14 @@ function renderizarTabla(datos) {
     tablaBody.innerHTML = '';
 
     if (datos.length === 0) {
-        tablaBody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros para mostrar bajo este filtro.</td></tr>';
+        tablaBody.innerHTML = '<tr><td colspan="5" class="text-center">No hay registros para mostrar bajo este filtro.</td></tr>';
         limpiarMatrizVisual();
         return;
     }
 
     datos.forEach(fila => {
-        const predIA = fila.imagenes_ia ? fila.imagenes_ia.prediccion_ia : 'N/A';
+        const predIA = (fila.imagenes_ia && fila.imagenes_ia.prediccion_ia) || 'N/A';
         const urlFoto = fila.imagenes_ia ? fila.imagenes_ia.ruta_archivo : '';
-        const urlGradcam = fila.imagenes_ia ? fila.imagenes_ia.ruta_gradcam : '';
         const diagMedico = fila.diagnostico_medico ? fila.diagnostico_medico : 'N/A';
         const nombreMed = fila.medicos ? fila.medicos.nombre : 'Anónimo';
 
@@ -173,12 +197,6 @@ function renderizarTabla(datos) {
                             <img src="${urlFoto}" alt="Ojo" class="img-thumbnail" style="max-height: 65px; width: 90px; object-fit: cover; background-color: #000; cursor: pointer;">
                         </a>` : 'N/A'}
                 </td>
-                <td class="text-center" style="width: 110px;">
-                    ${urlGradcam ? `
-                        <a href="${urlGradcam}" target="_blank" title="Clic para ampliar Grad-CAM">
-                            <img src="${urlGradcam}" alt="Grad-CAM" class="img-thumbnail" style="max-height: 65px; width: 90px; object-fit: cover; background-color: #000; cursor: pointer;">
-                        </a>` : '<span class="badge bg-secondary">Sin Mapa</span>'}
-                </td>
                 <td class="fw-semibold text-primary">${predIA}</td>
                 <td class="fw-semibold text-dark">${diagMedico}</td>
                 <td>${nombreMed}</td>
@@ -191,7 +209,7 @@ function renderizarTabla(datos) {
 }
 
 function calcularMatrizConfusion(datos) {
-    const clases = ['normal', 'nuclear', 'cortical', 'subcapsular'];
+    const clases = ['nuclear', 'cortical', 'subcapsular'];
 
     let matriz = {};
     clases.forEach(ia => {
@@ -202,18 +220,18 @@ function calcularMatrizConfusion(datos) {
     });
 
     datos.forEach(fila => {
-        let predIA = fila.imagenes_ia ? fila.imagenes_ia.prediccion_ia.toLowerCase().trim() : '';
+        let predIA = (fila.imagenes_ia && fila.imagenes_ia.prediccion_ia)
+            ? fila.imagenes_ia.prediccion_ia.toLowerCase().trim()
+            : '';
         let diagMedico = fila.diagnostico_medico ? fila.diagnostico_medico.toLowerCase().trim() : '';
 
         if (predIA.includes('subcapsular')) predIA = 'subcapsular';
         if (predIA.includes('nuclear')) predIA = 'nuclear';
         if (predIA.includes('cortical')) predIA = 'cortical';
-        if (predIA.includes('normal')) predIA = 'normal';
 
         if (diagMedico.includes('subcapsular')) diagMedico = 'subcapsular';
         if (diagMedico.includes('nuclear')) diagMedico = 'nuclear';
         if (diagMedico.includes('cortical')) diagMedico = 'cortical';
-        if (diagMedico.includes('normal')) diagMedico = 'normal';
 
         if (clases.includes(predIA) && clases.includes(diagMedico)) {
             matriz[predIA][diagMedico]++;
@@ -240,7 +258,7 @@ function calcularMatrizConfusion(datos) {
 }
 
 function limpiarMatrizVisual() {
-    const clases = ['normal', 'nuclear', 'cortical', 'subcapsular'];
+    const clases = ['nuclear', 'cortical', 'subcapsular'];
     clases.forEach(ia => {
         clases.forEach(medico => {
             const celda = document.getElementById(`m-${ia}-${medico}`);
@@ -259,12 +277,9 @@ document.getElementById('filtro-medico').addEventListener('change', (e) => {
     if (medicoSeleccionado === 'todos') {
         renderizarTabla(datosCruceGlobal);
     } else {
-        const datosFiltrados = datosCruceGlobal.filter(fila => {
-            if (fila.medicos && fila.medicos.nombre) {
-                return fila.medicos.nombre.toLowerCase().trim() === medicoSeleccionado.toLowerCase().trim();
-            }
-            return false;
-        });
+        const datosFiltrados = datosCruceGlobal.filter(
+            fila => String(fila.id_medico) === medicoSeleccionado
+        );
         renderizarTabla(datosFiltrados);
     }
 });
